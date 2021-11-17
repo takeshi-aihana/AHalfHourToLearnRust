@@ -1,7 +1,7 @@
 ```
 1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
 ---------+---------+---------+---------+---------X---------+---------+---------+---------+---------X
-$Lastupdate: 2021/11/15 12:32:09 $ T.AIHANA
+$Lastupdate: 2021/11/16 10:33:55 $ T.AIHANA
 ```
 
 * [A half-hour to lean Rust](https://fasterthanli.me/articles/a-half-hour-to-learn-rust)
@@ -151,7 +151,7 @@ let x = vec![1, 2, 3, 4, 5, 6, 7, 8]
 
 （これらが実際に何を意味しているかについては、後ほど説明します）
 
------
+----
 
 ## `fn` キーワード
 
@@ -288,10 +288,10 @@ use std::cmp::min;
 use std::cmp::max;
 
 // これも動作します：
-use std::cmp::{min, max};
+use std::cmp::{ min, max };
 
 // これも動作するんです！
-use std::{cmp::min, cmp::max};
+use std::{ cmp::min, cmp::max };
 ```
 
 記号 ``*``（ワイルドカード）は名前空間からすべてのシンボルをインポートしてくれます：
@@ -340,8 +340,8 @@ struct Vec2 {
 これらは *struct literals* を使って初期化することができます：
 
 ```Rust
-let v1 = Vec2 {x: 1.0, y: 3.0};
-let v2 = Vec2 {y: 2.0, x: 4.0};
+let v1 = Vec2 { x: 1.0, y: 3.0 };
+let v2 = Vec2 { y: 2.0, x: 4.0 };
 // メンバを書く順番は関係ありません（名前だけ合わせて下さい）
 ```
 
@@ -406,13 +406,128 @@ fn print_number(n: Number) {
     } else if let Number { odd: false, value } = n {
         println!("Even number: {}", value);
     }
-}        
+}
 
 // これを実行したときの出力は：
 // Odd number: 1
 // Even number: 2
 ```
 
+キーワード `match` は「網羅的」（*exhaustive*）であるべきです：
+すなわち、少なくとも一つの要素は一致させる必要があります。
+
+```Rust
+fn print_number(n: Number) {
+    match n {
+        Number { value: 1, .. } => println!("One"),
+        Number { value: 2, .. } => println!("Two"),
+        Number { value, .. } => println!("{}", value),
+        // もし最後の文が存在していなければ、コンパイル時にエラーとなります
+    }
+}
+```
+
+それが難しい場合は、記号 `_`（アンダースコア）を「一時的な物置き」（*catch-all*）として使って下さい：
+
+```Rust
+fn print_number(n: Number) {
+    match n.value {
+        1 => println!("One"),
+        2 => println!("Two"),
+        _ => println!("{}", n.value),
+    }
+}
+```
+
+----
+
+## 独自の型
+
+独自の型でいろいろなメソッドを宣言することができます：
+
+```Rust
+struct Number {
+    odd: bool,
+    vlaue: i32,
+}
+
+impl Number {
+    fn is_strictly_positive(self) -> bool {
+        self.value > 0
+    }
+}
+```
+
+そして、いつものようにそれらのメソッドを使って下さい：
+
+```Rust
+fn main() {
+    let minus_two = Number {
+        odd: false,
+        vlaue: -2,
+    };
+    println!("positive? {}", minus_two.is_strictly_positive());
+    // これは "positive? false" と出力されます
+}
+```
+
+変数へ代入（*variable binding*）はデフォルトで不変（*immutable*）になります。
+すなわち、変数の中身を変更することはできません：
+
+```Rust
+fn main() {
+    let n = Number {
+        odd: true,
+        value: 17,
+    };
+    n.odd = false;    // error: cannot assign to `n.odd`
+                      // その理由は `n` が変更可能（mutable）で宣言されていないからです
+}
+```
+
+また変数そのものに代入することもできません：
+
+```Rust
+fn main() {
+    let n = Number {
+        odd: true,
+        value: 17,
+    };
+    n = Number {
+        odd: false,
+        value: 22,
+    };    // error: cannot assign twice to immutable variable `n`
+}
+```
+
+キーワード `mut` は変数の中身を変更可能なものにします：
+
+```Rust
+fn main() {
+    let mut n = Number {
+        odd: true,
+        vlaue: 17,
+    }
+    n.value = 19;    // これは問題ありません
+}
+```
+
+「トレイト」（`trait`）とは、複数の型に共通する振る舞いです：
+
+```Rust
+trait Signed {
+    fn is_strictly_negative(self) -> bool;
+}
+```
+
+以下を実装できます：
+
+  - one of your traits on anyone's type
+  - anyone's trait on one of your types
+  - but not a foreign trait on a foreign type
+
+
+「孤立のルール」（*orphan rules*）と呼ばれるものがあります。
 
 
 ----
