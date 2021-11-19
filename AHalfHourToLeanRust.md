@@ -1,7 +1,7 @@
 ```
 1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
 ---------+---------+---------+---------+---------X---------+---------+---------+---------+---------X
-$Lastupdate: 2021/11/16 10:33:55 $ T.AIHANA
+$Lastupdate: 2021/11/18 16:53:32 $ T.AIHANA
 ```
 
 * [A half-hour to lean Rust](https://fasterthanli.me/articles/a-half-hour-to-learn-rust)
@@ -512,7 +512,9 @@ fn main() {
 }
 ```
 
-「トレイト」（`trait`）とは、複数の型に共通する振る舞いです：
+## トレイト
+
+「トレイト」（`trait`）とは複数の型に共通する振る舞いです（他の言語の「インタフェース」に似ています。トレイトを使うことで同じ名前の機能を様々な型に実装・追加できます。）：
 
 ```Rust
 trait Signed {
@@ -520,14 +522,158 @@ trait Signed {
 }
 ```
 
-以下を実装できます：
+トレイトに関しては以下を実装できます：
 
-  - one of your traits on anyone's type
-  - anyone's trait on one of your types
-  - but not a foreign trait on a foreign type
+  - 誰かの型に貴方のトレイトの一つ（*one of your traits on anyone's type*）
+  - 貴方の型の一つに誰かのトレイト（*anyone's trait on one of your types*）
+  - ただし貴方以外の型に貴方以外のトレイトは不可（*but not a foreign trait on a foreign type*）
 
 
-「孤立のルール」（*orphan rules*）と呼ばれるものがあります。
+これらは「孤立のルール」（*orphan rules*）と呼ばれています。
+
+
+次は自分たちの型に自分たちのトレイトを実装した例です：
+
+```Rust
+impl Signed for Number {
+    fn is_strictly_negative(self) -> bool {
+        self.value < 0
+    }
+}
+
+fn main() {
+    let n = Number { odd: false, value: -44 };
+    println!("{}", n.is_strictly_negative());    // この出力は "true"
+}
+```
+
+次は自分たちの型に無関係なトレイトを実装した例です：
+
+```Rust
+// `Neg` と言うトレイとは単項マイナス演算子の `-` を
+// オーバーロードする際に使用されます
+impl std::ops::Neg for Number {
+    type Output = Number;
+    
+    fn neg(self) -> Number {
+        Number {
+            value: -self.value,
+            odd: self.odd,
+        }
+    }
+}
+
+fn main() {
+    let n = Number { odd: true, value: 987 }
+    let m = -n;    // これだけは可能（なぜなら `Neg を実装したのは自分たちなので）
+    println!("{}", m.value);    // この出力は "-987"
+```
+
+キーワード `impl` のブロックは「型」に対するものなので、このブロックの中で `Self` は対応する型に相当します：
+
+```Rust
+impl std::ops::Neg for Number {
+    type Output = Self;
+    
+    fn neg(self) -> Self {
+        Self {
+            value: -self.value,
+            odd: self.odd,
+        }
+    }
+}
+```
+
+一部のトレイトは「マーカ」（*marker*）です。
+これは型がメソッドを実装しているのではなく、特定のことを型で実行できるという意味です。
+
+例えば `i32` と言う型は `Copy` というトレイトを実装しています（要するに `i32` 型は `Copy` ということです）。
+そのため、次のような動きになります：
+
+```Rust
+fn main() {
+    let a: i32 = 15;
+    let b = a;    // `a` がコピーされる
+    let c = a;    // また `a` がコピーされる
+}
+```
+
+さらに次のような動きもあります：
+
+```Rust
+fn print_i32(x: i32) {
+    println!("x = {}", x);
+}
+
+fn main() {
+    let a: i32 = 15;
+    print_i32(a);    // `a` がコピーされる
+    print_i32(a);    // また `a` がコピーされる
+}
+```
+
+ただし `Number` という（独自の）構造体は `Copy` というトレイトを実装していません。
+そのため上のような動きにはならずエラーになります：
+
+```Rust
+fn main() {
+     let n = Number { odd: true, value: 51 };
+     let m = n;    // `n` が `m` の中に移動する
+     let o = n;    // error: use of moved value: `n`（すでに移動しているので、これ以上は移動できない）
+}
+```
+
+さらに、次も同様にエラーになります：
+
+```Rust
+fn print_number(n: Number) {
+    println!("{} number {}", if n.odd { "odd" } else { "even" }, n.value);
+}
+
+fn main() {
+    let n = Number { odd: true, value: 51 };
+    print_number(n);    // `n` が移動する
+    print_number(n);    // error: use of moved value: `n` （上と同じ理由）
+}
+```
+
+そのかわり、関数 `print_number()` が変更不可（*immutable*）な参照を受け取る場合はエラーにはなりません：
+
+```Rust
+fn print_number(n: &Number) {
+    println!("{} number {}", if n.odd { "odd" } else { "even" }, n.value);
+}
+
+fn main() {
+    let n = Number { odd: true, value: 51 };
+    print_number(&n);    // `n` は関数呼び出で一時的に貸し出される
+    print_number(&n);    // また `n` を関数呼び出で一時的に貸し出される
+}
+```
+
+さらに、この関数が変更可能（*mutable*）な参照を受け取った場合もエラーにはなりません。ただし変数への代入でもキーワード `mut` が必要になります：
+
+```Rust
+fn invert(n: &mut Number) {
+    n.value = -n.value;
+}
+    
+fn print_number(n: &Number) {
+    println!("{} number {}", if n.odd { "odd" } else { "even" }, n.value);
+}
+
+fn main() {
+    // このとき `n` は変更可能にする
+    let mut n = Number { odd: true, value: 51 };
+    print_number(&n);
+    invert(&mut n);    // `n` は変更可能な変数として貸し出される
+    print_number(&n);
+}
+```
+
+
+
+
 
 
 ----
