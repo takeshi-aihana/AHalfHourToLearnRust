@@ -1,7 +1,7 @@
 ```
 1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
 ---------+---------+---------+---------+---------X---------+---------+---------+---------+---------X
-$Lastupdate: 2021/11/18 16:53:32 $ T.AIHANA
+$Lastupdate: 2021/11/19 10:43:56 $ T.AIHANA
 ```
 
 * [A half-hour to lean Rust](https://fasterthanli.me/articles/a-half-hour-to-learn-rust)
@@ -588,7 +588,7 @@ impl std::ops::Neg for Number {
 これは型がメソッドを実装しているのではなく、特定のことを型で実行できるという意味です。
 
 例えば `i32` と言う型は `Copy` というトレイトを実装しています（要するに `i32` 型は `Copy` ということです）。
-そのため、次のような動きになります：
+これは次のような動きになります：
 
 ```Rust
 fn main() {
@@ -613,7 +613,7 @@ fn main() {
 ```
 
 ただし `Number` という（独自の）構造体は `Copy` というトレイトを実装していません。
-そのため上のような動きにはならずエラーになります：
+そのため上のような動きにはならずコンパイル・エラーになります：
 
 ```Rust
 fn main() {
@@ -623,7 +623,7 @@ fn main() {
 }
 ```
 
-さらに、次も同様にエラーになります：
+さらに、次も同様にコンパイル・エラーになります：
 
 ```Rust
 fn print_number(n: Number) {
@@ -637,7 +637,7 @@ fn main() {
 }
 ```
 
-そのかわり、関数 `print_number()` が変更不可（*immutable*）な参照を受け取る場合はエラーにはなりません：
+そのかわり、関数 `print_number()` が変更不可（*immutable*）な参照を受け取る場合はコンパイル・エラーにはなりません：
 
 ```Rust
 fn print_number(n: &Number) {
@@ -651,7 +651,7 @@ fn main() {
 }
 ```
 
-さらに、この関数が変更可能（*mutable*）な参照を受け取った場合もエラーにはなりません。ただし変数への代入でもキーワード `mut` が必要になります：
+さらに、この関数が変更可能（*mutable*）な参照を受け取った場合もコンパイル・エラーにはなりません。ただし変数への代入でもキーワード `mut` が必要になります：
 
 ```Rust
 fn invert(n: &mut Number) {
@@ -670,6 +670,83 @@ fn main() {
     print_number(&n);
 }
 ```
+
+トレイトとして実装したメソッドは参照または変更可能な参照を使えば `self` も受け取れるようになります：
+
+```Rust
+impl std::clone::Clone for Number {
+    fn clone(&self) -> Self {
+        Self { ..*self }
+    }
+}
+```
+
+このメソッドを呼び出すと、呼び出し側が「暗黙的」に貸し出されます：
+
+```Rust
+fn main() {
+    let n = Number { odd: true, value: 51 };
+    let mut m = n.clone();
+    m.value += 100;
+    
+    println!(&n);
+    println!(&m);
+}
+```
+
+すこし詳しく説明すると、次の書き方は等価です：
+
+```Rust
+let m = n.clone();
+
+let m = std::clone::Clone::clone(&n);
+```
+
+`Copy` のようなマーカのトレイトにはメソッドはありません：
+
+```Rust
+// メモ: `Copy` には `Clone` も実装されている必要があります
+impl std::clone::Clone for Number {
+    fn clone(&self) -> Self {
+        Self { ..*self }
+    }
+}
+
+impl std::marker::Copy for Number {}
+```
+
+この状態でも引き続き `Clone` を利用できますが：
+
+```Rust
+fn main() {
+    let n = Number { odd: true, value: 51 };
+    let m = n.clone();
+    let o = n.clone();
+}
+```
+
+`Number` の値は移動されなくなります：
+
+```Rust
+fn main() {
+    let n = Number { odd: true, value: 51 };
+    let m = n;    // `m` は `n` のコピーです
+    let o = n;    // これも同じで、`n` は移動されることも貸し出されることもありません
+}
+```
+
+一部のトレイトはごくごく普通に使われるので、`derive` という属性を使って自動的に実装させることが可能になっています：
+
+```Rust
+#[derive(Clone, Copy)]
+struct Number {
+    odd: bool,
+    value: i32,
+}
+
+// この定義は `impl Clone for Number` と `impl Copy for Number`  のブロックに展開されます
+```
+
 
 
 
@@ -723,6 +800,7 @@ $ pip3 install funky
 ## pip が funky.sh をインストールした場所を見つけて、それを source します
 source /usr/local/lib/python3.9/site-packages/scripts/shell/funky.sh
 ```
+
 
 ----
 
