@@ -1,7 +1,7 @@
 ```
 1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
 ---------+---------+---------+---------+---------X---------+---------+---------+---------+---------X
-$Lastupdate: 2021/11/22 10:54:06 $ T.AIHANA
+$Lastupdate: 2021/11/25 11:05:03 $ T.AIHANA
 ```
 
 * [A half-hour to lean Rust](https://fasterthanli.me/articles/a-half-hour-to-learn-rust)
@@ -264,7 +264,7 @@ nick.len();    // これは 14 です
 ```
 
 記号 `::`（ダブルコロン）も似ていますが、これは名前空間（*namespace*）を操作するものです。
-次の例で、`std` は *crate* （と言うライブラリ）、`cmp` はモジュール名（ソースファイル）、そして `min` が関数名とすると：
+次の例では、`std` はクレート名（*crate*、ライブラリ）、`cmp` はモジュール名（ソースファイル）、そして `min` が関数名とすると：
 
 ```Rust
 let least = std::cmp::min(3, 8);    // これは 3
@@ -755,7 +755,7 @@ fn foobar<T>(arg: T) {
 }
 ```
 
-これらの関数は複数の型パラメータを持たせ、具体的な型の代わりに、関数の宣言とその実装の中で使用することができるようになっています：
+これらの関数は複数の「型パラメータ」（*type parameter*）を持たせ、具体的な型の代わりに、関数の宣言とその実装の中で使用することができるようになっています：
 
 ```Rust
 fn foobar<L, R>(left: L, right: R) {
@@ -763,7 +763,7 @@ fn foobar<L, R>(left: L, right: R) {
 }
 ```
 
-通常、型パラメータには制約（*constraint*）があるので、それらを使って実際に何か処理することができます。
+通常、型パラメータには「制約」（*constraint*）があるので、それらを使って実際に何か処理することができます。
 
 もっとも単純な制約はトレイトの名前です：
 
@@ -777,7 +777,15 @@ fn print<T: Debug>(value: T) {
 }
 ```
 
-型パラメータの制約には長い構文があります：
+型パラメータの制約には長い構文で書く方法があります。次の制約：
+
+```Rust
+fn print<T: Display>(value: T) {
+    println!("value = {}", value);
+}
+```
+
+は次と同じ意味を持ちます：
 
 ```Rust
 fn print<T>(value: T)
@@ -788,9 +796,8 @@ where
 }
 ```
 
-
 制約はより複雑になる場合があります。
-すなわち、制約で「多重トレイト（*multiple traits*）」を実装するために型パラメータが必要になる場合があるます：
+すなわち、制約で多重トレイト（*multiple traits*）を実装するために型パラメータが必要になる場合があります：
 
 ```Rust
 use std::fmt::Debug;
@@ -807,3 +814,81 @@ fn main() {
     // この出力は： "tea" != "coffee"
 }
 ```
+
+ジェネリック式の関数とは、さまざまな型を持つ無限個の関数を含んだ名前空間と考えることができます。
+
+いろいろなクレート、モジュール、そして型と同様に、ジェネリック式の関数は記号 ``::`` を使って「順にたどる」（探検する？）ことが可能です：
+
+```Rust
+fn main() {
+    use std::any::type_name;
+    println!("{}", type_name::<i32>());    // 出力は "i32"
+    println!("{}", type_name::<(f64, char)>());    // 出力は "(f64, char)"
+```
+
+この記号は愛情をこめて [turbofish 構文](https://turbo.fish/) と呼んでいます（なぜなら ``::<>`` の記号が魚に見えるからです）。
+
+構造体もジェネリック式にすることができます：
+
+```Rust
+struct Pair<T> {
+    a: T,
+    b: T,
+}
+
+fn print_type_name<T>(_val: &T) {
+    println!("{}", std::any::type_name::<T>());
+}
+
+fn main() {
+    let p1 = Pair { a: 3, b: 9 };
+    let p2 = Pair { a: true, b: false};
+    print_type_name(&p1);    // 出力は "Pair<i32>"
+    print_type_name(&p2);    // 出力は "Pair<boo>"
+}
+```
+
+標準ライブラリにある ``Vec``（ヒープ領域に確保される配列）型はジェネリック式です：
+
+```Rust
+fn main() {
+    let mut v1 = Vec::new();
+    v1.push(1);
+    let mut v2 = Vec::new();
+    v2.push(false);
+    print_type_name(&v1);    // 出力は "Vec<i32>"
+    print_type_name(&v2);    // 出力は "Vec<boo>"
+}
+```
+
+``Vec`` 型と言えば、多かれ少なかれ「vec リテラル」を与えるマクロが含まれています：
+
+```Rust
+fn main() {
+    let v1 = vec![1, 2, 3];
+    let v2 = vec![true, false, true];
+    print_type_name(&v1);    // 出力は "Vec<i32>"
+    print_type_name(&v2);    // 出力は "Vec<boo>"
+}
+```
+
+``name!()``、``name![]``、あるいは ``name!{}`` のすべてがマクロを呼ぶようになっています。
+これらのマクロは通常のコードに展開されるだけです。
+
+実際のところ ``println`` もマクロです：
+
+```Rust
+fn main() {
+    println!("{}", "Hello there!");
+}
+```
+
+これは次と同じ効果を持つコードに展開されます：
+
+```Rust
+fn main() {
+    use std::io::{self, Write};
+    io::stdout().lock().write_all(b"Hello there!\n").unwrap();
+}
+```
+
