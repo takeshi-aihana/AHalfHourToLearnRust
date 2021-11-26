@@ -1,7 +1,7 @@
 ```
 1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
 ---------+---------+---------+---------+---------X---------+---------+---------+---------+---------X
-$Lastupdate: 2021/11/25 11:05:03 $ T.AIHANA
+$Lastupdate: 2021/11/26 11:12:16 $ T.AIHANA
 ```
 
 * [A half-hour to lean Rust](https://fasterthanli.me/articles/a-half-hour-to-learn-rust)
@@ -891,4 +891,41 @@ fn main() {
     io::stdout().lock().write_all(b"Hello there!\n").unwrap();
 }
 ```
+
+キーワード ``panic`` もマクロの一種です。
+これが有効になっている場合、エラーメッセージの他に、エラーが発生したファイル名とその行番号を出力してプログラムの実行を完全に停止します：
+
+```Rust
+fn main() {
+    panic!("This panics");
+}
+// この出力は： thread 'main' panicked at 'This panics', src/main.rs:3:5
+```
+
+他のメソッドにも完全停止（パニック）するものがあります。
+例えば、``Option`` 型に何かを含めることが可能ですし、もしくは何も含めなくても構いません。
+もし、この型で ``.unwrap()`` メソッドが呼び出され、その型に何も含まれていない場合にはパニックが発生します：
+
+```Rust
+fn main() {
+    let o1: Option<i32> = Some(128);
+    o1.unwrap();    // これは問題なし
+
+    let o2: Option<i32> = None;
+    o2.unrap();    // これはパニックになります！
+}
+
+// この出力は： thread 'main' panicked at 'called `Option::unwrap()` on a `None` value', src/libcore/option.rs:378:21
+```
+
+`Result` は列挙型の一種で、何かが含まれているか、もしくはエラーが含まれているかのどちらかになります：
+
+```Rust
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+```
+
+これも ``.unwrap()`` メソッドが呼ばれた時にエラーの他に何も含まれていない場合はパニックになります。
 
