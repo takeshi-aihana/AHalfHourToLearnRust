@@ -1,7 +1,7 @@
 ```
 1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
 ---------+---------+---------+---------+---------X---------+---------+---------+---------+---------X
-$Lastupdate: 2021/11/26 11:12:16 $ T.AIHANA
+$Lastupdate: 2021/11/29 16:11:30 $ T.AIHANA
 ```
 
 * [A half-hour to lean Rust](https://fasterthanli.me/articles/a-half-hour-to-learn-rust)
@@ -893,18 +893,18 @@ fn main() {
 ```
 
 キーワード ``panic`` もマクロの一種です。
-これが有効になっている場合、エラーメッセージの他に、エラーが発生したファイル名とその行番号を出力してプログラムの実行を完全に停止します：
+これが有効になっている場合、エラーメッセージの他に、エラーが発生したファイル名とその行番号を出力してプログラムの実行を完全に停止（パニック）します：
 
 ```Rust
 fn main() {
     panic!("This panics");
 }
-// この出力は： thread 'main' panicked at 'This panics', src/main.rs:3:5
+// このとき出力は： thread 'main' panicked at 'This panics', src/main.rs:3:5
 ```
 
-他のメソッドにも完全停止（パニック）するものがあります。
+他のメソッドにもパニックするものがあります。
 例えば、``Option`` 型に何かを含めることが可能ですし、もしくは何も含めなくても構いません。
-もし、この型で ``.unwrap()`` メソッドが呼び出され、その型に何も含まれていない場合にはパニックが発生します：
+もし、この型で ``.unwrap()`` メソッドが呼び出され、その型に何も含まれていないとパニックが発生します：
 
 ```Rust
 fn main() {
@@ -912,13 +912,45 @@ fn main() {
     o1.unwrap();    // これは問題なし
 
     let o2: Option<i32> = None;
-    o2.unrap();    // これはパニックになります！
+    o2.unwrap();    // これはパニックになります！
 }
 
-// この出力は： thread 'main' panicked at 'called `Option::unwrap()` on a `None` value', src/libcore/option.rs:378:21
+// このとき出力は： thread 'main' panicked at 'called `Option::unwrap()` on a `None` value', src/libcore/option.rs:378:21
 ```
 
-`Result` は列挙型の一種で、何かが含まれているか、もしくはエラーが含まれているかのどちらかになります：
+`Option` 型は構造体ではありません ー
+二つの可変値を持つ `enum` （列挙子）です。
+
+```Rust
+enum Option<T> {
+    None,
+    Some(T),
+}
+
+impl<T> Option<T> {
+    fn unwrap(self) -> T {
+        // 列挙子にある二つの可変値はいろいろなケースで利用できます：
+        match self {
+            Self::Some(t) => t,
+            Self::None => panic!(".unwrap() called on a None option"),
+        }
+    }
+}
+
+use self::Option::{None, Some};
+
+fn main() {
+    let o1: Option<i32> = Some(128);
+    o1.unwrap();    // これは問題なし
+
+    let o2: Option<i32> = None;
+    o2.unwrap();    // これはパニックになります！
+}
+
+// このときの出力は： thread 'main' panicked at '.unwrap() called on a None option', src/main.rs:11:27
+```
+
+`Result` も `enum` の一種で、何かが含まれているか、もしくはエラーが含まれているかのどちらかになります：
 
 ```Rust
 enum Result<T, E> {
@@ -927,5 +959,115 @@ enum Result<T, E> {
 }
 ```
 
-これも ``.unwrap()`` メソッドが呼ばれた時にエラーの他に何も含まれていない場合はパニックになります。
+これも ``.unwrap()`` メソッドが呼ばれた際、エラーの他に何も含まれていないとパニックになります。
 
+変数への割当てでは「ライフタイム」（賞味期限）があります：
+
+```Rust
+fn main() {
+    // ここでは `x` はまだ存在していません
+    {
+        let x = 42;    // `ここから `x` が存在します
+        println!("{}", x);
+        // ここで `x` が無くなります
+    }
+    // ここでは `x` はもう存在していません
+}
+```
+
+同様に、参照にもライフタイムがあります：
+
+```Rust
+fn main() {
+    let x_ref = {
+        let x = 42;
+        &x
+    };
+    println!("x_ref = {}", x_ref);
+    // エラーになります：
+    // error: `x` does not live long enough
+}
+```
+
+参照の変数への代入では不変（*immutable*）の状態であれば複数回借用できます：
+
+```Rust
+fn main() {
+    let x = 42;
+    let x_ref1 = &x;
+    let x_ref2 = &x;
+    let x_ref3 = &x;
+    println!("{} {} {}", x_ref1, x_ref2, x_ref3);
+}
+```
+
+したがって参照を借用している間、変更可能な状態での変数への代入はできません：
+
+```Rust
+fn main() {
+    let mut x = 42;
+    let x_ref = &x;
+    x = 13;
+    println!("x_ref = {}", x_ref);
+    // エラーになります：
+    // error: cannot assign to `x` because it is borrowed
+}
+```
+
+また参照を変更不可の状態（*immutable*）で借用中に、変更可能な状態（*mutable*）の変数を借用することはできません：
+
+```Rust
+fn main() {
+    let mut x = 42;
+    let x_ref1 = &x;
+    let x_ref2 = &mut x;
+    // エラーになります：
+    // error: cannot borrow `x` as mutable because it is also borrowed as immutable
+    println!("x_ref1 = {}", x_ref1);
+}
+```
+
+関数の引数として渡した参照にもライフタイムがあります：
+
+```Rust
+fn print(x: &i32) {
+    // `x` は、この関数が呼ばれた時にだけ（関数の外から）借用されもの
+}
+```
+
+このように参照を引数として受け取る関数では、さまざまなライフタイムを持つもので呼び出すことができます。
+そのため：
+
+  - 参照を受け取るすべての関数はジェネリック（*generic*）式で記述する
+  - ライフタイムはジェネリックの引数となる
+
+ライフタイムの名前はシングル・クオーテーション ``'`` で始まります：
+
+```Rust
+// ライフタイムを考慮していない引数（名前がない）
+fn print(x: &i32) {}
+
+// ライフタイムの名前がついた引数
+fn print<'a>(x: &'a i32) {}
+```
+
+これにより、引数のライフタイムに応じたライフタイムを持つ参照を返すことができるようになります：
+
+```Rust
+struct Number {
+    value: i32,
+}
+
+fn number_value<'a>(num: &'a Number) -> &'a i32 {
+    &num.value
+}
+
+fn main() {
+    let n = Number { value: 47 };
+    let v = number_value(&n);
+    // `v` は `n` を（不変な状態で）借りることになるので： `v` は `n` よりも「長生き」できません
+    // `v` が「生きている」間、`n` を変更可能な状態で借りたり、変更可能にしたり、移動したりはできません
+}
+```
+
+    
