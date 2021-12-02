@@ -1,7 +1,7 @@
 ```
 1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
 ---------+---------+---------+---------+---------X---------+---------+---------+---------+---------X
-$Lastupdate: 2021/11/30 10:32:24 $ T.AIHANA
+$Lastupdate: 2021/12/02 11:07:10 $ T.AIHANA
 ```
 
 * [A half-hour to lean Rust](https://fasterthanli.me/articles/a-half-hour-to-learn-rust)
@@ -961,6 +961,9 @@ enum Result<T, E> {
 
 これも ``.unwrap()`` メソッドが呼ばれた際、エラーの他に何も含まれていないとパニックになります。
 
+
+## ライフタイム
+
 変数への割当てでは「ライフタイム」（賞味期限）があります：
 
 ```Rust
@@ -1151,5 +1154,112 @@ fn main() {
     // `x_num_ref` と `x_i32_ref` のどちらも `x` よりも「長生き」できません
 }
 ```
+
+ただしライフタイムの省略版にすることはできます：
+
+```Rust
+impl<'a> NumRef<'a> {
+    fn as_i32_ref(&self) -> &i32 {
+        self.x
+    }
+}
+```
+
+ライフタイムに名前が必要ない場合は、もっと省略することができます：
+
+```Rust
+impl NumRef<'_> {
+    fn as_i32_ref(&self) -> &i32 {
+        self.x
+    }
+}
+```
+
+``static`` という特別なライフタイムがあります。
+これはプログラムの最初から最後までのライフタイムを有効にします。
+
+文字列は '``static``' のライフタイムを持ちます：
+
+```Rust
+struct Person {
+    name: &'static str,
+}
+
+fn main() {
+    let p = Person {
+        name: "fasterthanlime",
+    };
+}
+```
+
+ただし自らが作り所有する一時的な文字列（*owned strings*）は '``static``' にはなりません：
+
+```Rust
+struct Person {
+    name: &'static str,
+}
+
+fn main() {
+    let name = format!("fasterthanlime{}", "lime");
+    let p = Person { name: &name };
+    // これはエラーになります
+    // error: `name` does not live long enough
+}
+```
+
+上の例でローカル変数の ``name`` は ``&'static str`` 型ではなく ``String`` 型です。
+この ``name`` は動的に確保され、あとで解放されます。
+実際のところ、この ``name`` のライフタイムはプログラムのライフタイムよりも短いです（それがたまたま ``main()`` と同じライフタイムであったとしても）。
+
+したがって'``static``' ではない文字列を、上の例の ``Person`` に格納する場合は、次のいずれかの方法が必要になります：
+
+1. ライフタイム中ずっとジェネリック型にする：
+
+```Rust
+struct Person<'a> {
+    name: &'a str,
+}
+
+fn main() {
+    let name = format!("fasterthanlime{}", "lime");
+    let p = Person { name: &name };
+    // `p` は `name` よりも長生きできません
+}
+```
+
+あるいは
+
+2. 文字列の所有権を受け入れる
+
+```Rust
+struct Person {
+    name: String,
+}
+
+fn main() {
+    let name = format!("fasterthanlime{}", "lime");
+    let p = Person { name: name };
+    // `name` は `p` に移動し、これら二つのライフタイムは全く別物になる
+}
+```
+
+さらについて言えば：
+構造体のメンバに同じ名前の型の変数が代入されている場合：
+
+```Rust
+    let p = Parson { name: name };
+```
+
+次のように短縮できます：
+
+```Rust
+    let p = Parson { name };
+```
+
+Rust が提供しているたくさんの型は「所有する」（*owned*）系と「所有しない」（*non-owned*）系に分かれます：
+
+- 文字列： ``String`` 型は「所有する」、``&str`` 型は「所有しない（参照）」です
+- パス： ``PathBuf`` 型は「所有する」、``&Path`` 型は「所有しない（参照）」です
+- コレクション： ``Vec<t>`` 型は「所有する」、``&[T]`` 型は「所有しない（参照）」です
 
 
